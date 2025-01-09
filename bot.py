@@ -1,160 +1,123 @@
 import discord
 from discord.ext import commands
-import asyncio
-import requests
-import os
 
-# Get the bot token from environment variables
-TOKEN = os.getenv("DISCORD_TOKEN")  # Store the token securely
+# Directly add your bot token here (replace YOUR_BOT_TOKEN with your actual token)
+TOKEN = "BOT_TOKEN"
 
-# Initialize the bot with necessary intents
+# Intents setup
 intents = discord.Intents.default()
-intents.message_content = True  # Enable message content intent
+intents.guilds = True
+intents.messages = True
 
+# Bot setup
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Variable to hold the channel IDs where memes will be sent
-active_channels = {}
-stopped_channels = set()  # To track channels where memes are stopped
-memes_posted = 0  # Counter for memes posted
-recent_memes = []  # List to store recent memes
-
-# Function to fetch a meme from the internet
-def get_meme():
-    url = "https://meme-api.com/gimme"  # Public meme API
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        meme_url = data["url"]  # Meme image URL
-        meme_title = data["title"]  # Meme title or description
-        return meme_url, meme_title  # Return both the URL and the title
-    return None, None  # Return None if there's an issue
-
-# Slash command to set the meme channel with interval
-@bot.tree.command(name="setchannel", description="Set the channel for memes to be posted and set the interval.")
-async def setchannel(interaction: discord.Interaction, channel: discord.TextChannel, time: str):
-    if channel.id in active_channels:
-        if channel.id in stopped_channels:
-            await interaction.response.send_message(f"{channel.mention} is already set up for memes but has been stopped. To resume posting, use /startmemes.")
-        else:
-            await interaction.response.send_message(f"{channel.mention} is already set up for memes.")
-    else:
-        try:
-            interval = parse_time(time)
-            active_channels[channel.id] = {"channel": channel, "interval": interval}
-            await interaction.response.send_message(f"Meme channel has been set to {channel.mention} with an interval of {interval} seconds.")
-            # Start posting memes immediately
-            asyncio.create_task(post_memes())
-        except ValueError:
-            await interaction.response.send_message("Invalid time format. Please use 'min' for minutes or 'sec' for seconds.")
-
-# Helper function to parse time input
-def parse_time(time_str):
-    time_str = time_str.lower().strip()
-    if 'min' in time_str:
-        minutes = int(time_str.replace("min", "").strip())
-        return minutes * 60  # Convert minutes to seconds
-    elif 'sec' in time_str:
-        seconds = int(time_str.replace("sec", "").strip())
-        return seconds  # Already in seconds
-    else:
-        raise ValueError("Invalid time format")
-
-# Slash command to stop posting memes to a specific channel
-@bot.tree.command(name="stopmemes", description="Stop posting memes to a specific channel.")
-async def stopmemes(interaction: discord.Interaction, channel: discord.TextChannel):
-    if channel.id in active_channels:
-        stopped_channels.add(channel.id)
-        await interaction.response.send_message(f"Stopped posting memes in {channel.mention}. To resume posting, use /startmemes.")
-    else:
-        await interaction.response.send_message(f"{channel.mention} is not set up to post memes.")
-
-# Slash command to start posting memes to a specific channel
-@bot.tree.command(name="startmemes", description="Start posting memes to a specific channel.")
-async def startmemes(interaction: discord.Interaction, channel: discord.TextChannel):
-    if channel.id in active_channels:
-        if channel.id in stopped_channels:
-            stopped_channels.remove(channel.id)
-            await interaction.response.send_message(f"Started posting memes in {channel.mention}.")
-        else:
-            await interaction.response.send_message(f"Memes are already being posted in {channel.mention}.")
-    else:
-        await interaction.response.send_message(f"{channel.mention} is not set up to post memes.")
-
-# Slash command to send a meme instantly
-@bot.tree.command(name="meme", description="Fetch and post a meme instantly.")
-async def meme(interaction: discord.Interaction):
-    meme_url, meme_title = get_meme()
-    if meme_url:
-        await interaction.response.send_message(f"**{meme_title}**\n{meme_url}")
-    else:
-        await interaction.response.send_message("Sorry, couldn't fetch a meme right now.")
-
-# Slash command to check if the bot is online (ping)
-@bot.tree.command(name="ping", description="Check if the bot is online.")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("Pong! The bot is online and responsive.")
-
-# Slash command to show help message
-@bot.tree.command(name="help", description="Show available bot commands.")
-async def help(interaction: discord.Interaction):
-    help_message = """
-    **Available Commands:**
-    - /setchannel [channel] time:[interval] – Set the channel for memes to be posted and define the interval for posting (in minutes or seconds).
-    - /meme – Fetch and post a meme instantly.
-    - /stopmemes [channel] – Stop posting memes to a specific channel.
-    - /startmemes [channel] – Start posting memes to a specific channel.
-    - /stats – View bot statistics (number of memes posted).
-    - /topmemes – View the most recent memes posted.
-    - /ping – Check if the bot is online.
-    """
-    await interaction.response.send_message(help_message)
-
-# Event triggered when the bot logs in successfully
 @bot.event
 async def on_ready():
-    await bot.tree.sync()  # Force syncing the slash commands with Discord
-    print(f'Logged in as {bot.user}')
+    """
+    Event triggered when the bot is ready.
+    Syncs slash commands with Discord.
+    """
+    print(f"Logged in as {bot.user}")
+    try:
+        synced = await bot.tree.sync()  # Sync slash commands
+        print(f"Synced {len(synced)} commands with Discord.")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
-# Function to post memes at the set intervals
-async def post_memes():
-    global active_channels, stopped_channels, memes_posted, recent_memes
-    tasks = []
-    for channel_id, data in active_channels.items():
-        if channel_id not in stopped_channels:
-            task = asyncio.create_task(post_meme_for_channel(data))
-            tasks.append(task)
-    await asyncio.gather(*tasks)
+@bot.tree.command(name="support", description="Send a support ticket embed.")
+async def support(interaction: discord.Interaction):
+    """
+    Sends an embed with a button to create a support ticket.
+    """
+    embed = discord.Embed(
+        title="🎟 Support Tickets",
+        description="Click the button below to create a support ticket and get help from our team.",
+        color=discord.Color.blue()
+    )
+    embed.set_footer(text="Our team is here to assist you!")
 
-# Helper function to handle posting memes to individual channels
-async def post_meme_for_channel(data):
-    channel = data["channel"]
-    interval = data["interval"]
-    while True:
-        meme_url, meme_title = get_meme()
-        if meme_url:
-            await channel.send(f"**{meme_title}**\n{meme_url}")
-            memes_posted += 1
-            recent_memes.append({"title": meme_title, "url": meme_url})
-            if len(recent_memes) > 10:  # Keep the list size manageable
-                recent_memes.pop(0)
-        await asyncio.sleep(interval)
+    # Create a button to open a support ticket
+    view = discord.ui.View()
+    view.add_item(
+        discord.ui.Button(
+            label="Open Ticket",
+            style=discord.ButtonStyle.primary,
+            custom_id="open_ticket"
+        )
+    )
 
-# Slash command to show bot stats
-@bot.tree.command(name="stats", description="View bot statistics (number of memes posted).")
-async def stats(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Memes posted: {memes_posted}")
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-# Slash command to show the most recent memes
-@bot.tree.command(name="topmemes", description="View the most recent memes posted.")
-async def topmemes(interaction: discord.Interaction):
-    if recent_memes:
-        message = "Most recent memes:\n"
-        for meme in recent_memes[:5]:  # Show the 5 most recent memes
-            message += f"{meme['title']} - {meme['url']}\n"
-        await interaction.response.send_message(message)
-    else:
-        await interaction.response.send_message("No memes posted yet.")
 
-# Run the bot using the token
-bot.run(TOKEN)
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    """
+    Handles interactions for opening and closing tickets.
+    """
+    if "custom_id" in interaction.data:  # Ensure the interaction has a custom_id
+        custom_id = interaction.data["custom_id"]
+
+        if custom_id == "open_ticket":
+            guild = interaction.guild
+            category = discord.utils.get(guild.categories, name="Support Tickets")
+            if not category:
+                category = await guild.create_category("Support Tickets")
+
+            # Ensure bot has permission to manage channels in the category
+            if interaction.guild.me.guild_permissions.manage_channels:
+                # Create a ticket channel
+                ticket_channel = await category.create_text_channel(f"ticket-{interaction.user.name}")
+
+                # Set permissions for the channel
+                await ticket_channel.set_permissions(interaction.guild.default_role, read_messages=False)
+                await ticket_channel.set_permissions(interaction.user, read_messages=True, send_messages=True)
+                await ticket_channel.set_permissions(interaction.guild.me, read_messages=True, send_messages=True)
+
+                try:
+                    # Send an embed in the ticket channel
+                    embed = discord.Embed(
+                        title="🎫 Support Ticket",
+                        description=f"Hello {interaction.user.mention}, our support team will assist you soon.\n\n"
+                                    "Click the button below to close this ticket when you're done.",
+                        color=discord.Color.green()
+                    )
+                    embed.set_footer(text="Thank you for contacting support!")
+                    close_view = discord.ui.View()
+                    close_view.add_item(
+                        discord.ui.Button(
+                            label="Close Ticket",
+                            style=discord.ButtonStyle.danger,
+                            custom_id="close_ticket"
+                        )
+                    )
+                    await ticket_channel.send(embed=embed, view=close_view)
+                    await interaction.response.send_message("Your ticket has been created!", ephemeral=True)
+                except discord.errors.NotFound:
+                    await interaction.response.send_message("The ticket channel could not be found or was deleted.", ephemeral=True)
+
+            else:
+                await interaction.response.send_message("I don't have permission to manage channels.", ephemeral=True)
+
+        elif custom_id == "close_ticket":
+            try:
+                # Ensure the channel exists and the bot has permission to delete it
+                if interaction.guild.me.guild_permissions.manage_channels:
+                    if interaction.channel:  # Make sure the channel isn't None
+                        await interaction.channel.delete()
+                        await interaction.response.send_message("Ticket closed!", ephemeral=True)
+                    else:
+                        await interaction.response.send_message("The ticket channel no longer exists.", ephemeral=True)
+                else:
+                    await interaction.response.send_message("I don't have permission to delete the ticket channel.", ephemeral=True)
+            except discord.errors.NotFound:
+                await interaction.response.send_message("The ticket channel has already been deleted or is unavailable.", ephemeral=True)
+            except discord.errors.Forbidden:
+                await interaction.response.send_message("I don't have permission to delete the ticket channel.", ephemeral=True)
+
+
+# Run the bot with the token
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("Error: Bot token not provided.")
