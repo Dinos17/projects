@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timedelta
 
 # Get the bot token from environment variables
-TOKEN = ("BOT_TOKEN")  # Store the token securely
+TOKEN = os.getenv("BOT_TOKEN")  # Store the token securely
 
 # Initialize the bot with necessary intents
 intents = discord.Intents.default()
