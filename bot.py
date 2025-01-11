@@ -216,8 +216,8 @@ async def help(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
-        name="📅 /weekly",
-        value="Fetch weekly meme highlights.",
+        name="📅 /daily",
+        value="sends daily memes at midnight in a spacific channel.",
         inline=False
     )
     embed.add_field(
