@@ -217,7 +217,7 @@ async def help(interaction: discord.Interaction):
     )
     embed.add_field(
         name="📅 /daily",
-        value="sends daily memes at midnight in a spacific channel.",
+        value="sends daily memes at midnight in a specific channel.",
         inline=False
     )
     embed.add_field(
