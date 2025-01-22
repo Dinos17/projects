@@ -20,10 +20,11 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.GR3NsR.g6fNRpNmnkI_F1ExfT3vkeePnBJZr8l0YQgbrg")
+TOKEN = os.getenv("BOT_TOKEN")
+
 reddit = praw.Reddit(
-    client_id="SSyW_YrpPGnn9aFpqwCWCQ",
-    client_secret="yZGOcZn8GJlcrtI2avrVkex2yVAkig",
+    client_id=os.getenv("REDDIT_CLIENT_ID"),
+    client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
     user_agent="Auto Memer",
 )
 
