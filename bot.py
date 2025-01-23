@@ -20,7 +20,7 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 reddit = asyncpraw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),
     client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
