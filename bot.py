@@ -21,17 +21,17 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 
-token = os.getenv('BOT_TOKEN')
-client_id = os.getenv('REDDIT_CLIENT_ID')
-client_secret = os.getenv('REDDIT_CLIENT_SECRET')
-user_agent = os.getenv('USER_AGENT')
+token = "BOT_TOKEN"
+
+client_id = "your_client_id_here"
+client_secret = "your_client_secret_here"
+user_agent = "Auto Memer"
 
 
-reddit = asyncpraw.Reddit(
+reddit = praw.Reddit(
     client_id=client_id,
     client_secret=client_secret,
-    user_agent=user_agent,
-    token=token
+    user_agent=user_agent
 )
 
 # Bot Setup
