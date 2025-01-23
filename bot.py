@@ -21,10 +21,11 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 
+bot_token = "BOT_TOKEN"
+
 client_id = "your_client_id_here"
 client_secret = "your_client_secret_here"
-user_agent = "Auto Memer"
-bot_token = "BOT_TOKEN"
+user_agent = "USER_AGENT"
 
 
 reddit = praw.Reddit(
