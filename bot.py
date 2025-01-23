@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 
-bot_token = "BOT_TOKEN"
+bot_token = is. getenv"BOT_TOKEN"
 
 client_id = "your_client_id_here"
 client_secret = "your_client_secret_here"
