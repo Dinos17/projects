@@ -1,3 +1,4 @@
+
 # ===== IMPORTS =====
 import discord
 from discord.ext import commands
@@ -276,27 +277,35 @@ async def sync(interaction: discord.Interaction):
         )
         return
 
-    await interaction.response.defer(ephemeral=True)
+    # Attempt to defer the response
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+    except discord.errors.HTTPException as e:
+        print(f"Failed to defer interaction: {e}")
+        return  # Exit if the interaction is no longer valid
 
     try:
         synced = await bot.tree.sync()
         last_sync_time = current_time
         
-        embed = discord.Embed(
-            title="✅ Command Sync Complete",
-            description="All commands have been synchronized successfully!",
-            color=discord.Color.green()
-        )
-        
-        command_list = "\n".join([f"• /{cmd.name}" for cmd in synced]) if synced else "No commands synced"
-        embed.add_field(
-            name="Available Commands",
-            value=f"Synced {len(synced)} commands:\n{command_list}",
-            inline=False
-        )
-        embed.set_footer(text=f"Requested by {interaction.user}")
+        # Check if the interaction response is still valid before sending a message
+        if not interaction.response.is_done():
+            embed = discord.Embed(
+                title="✅ Command Sync Complete",
+                description="All commands have been synchronized successfully!",
+                color=discord.Color.green()
+            )
+            
+            command_list = "\n".join([f"• /{cmd.name}" for cmd in synced]) if synced else "No commands synced"
+            embed.add_field(
+                name="Available Commands",
+                value=f"Synced {len(synced)} commands:\n{command_list}",
+                inline=False
+            )
+            embed.set_footer(text=f"Requested by {interaction.user}")
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     except Exception as e:
         error_embed = discord.Embed(
