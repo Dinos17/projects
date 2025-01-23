@@ -21,18 +21,16 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 
-bot_token = os.getenv"BOT_TOKEN"
+bot_token = os.getenv("BOT_TOKEN")
+client_id = os.getenv("REDDIT_CLIENT_ID")
+client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+user_agent = os.getenv("REDDIT_USER_AGENT")
 
-client_id = "your_client_id_here"
-client_secret = "your_client_secret_here"
-user_agent = "USER_AGENT"
-
-
+# Initialize Reddit instance with praw (no token needed)
 reddit = praw.Reddit(
     client_id=client_id,
     client_secret=client_secret,
-    user_agent=user_agent,
-    token=bot_token  # Use the token for OAuth
+    user_agent=user_agent
 )
 
 # Bot Setup
