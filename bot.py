@@ -22,7 +22,8 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 TOKEN = os.getenv("BOT_TOKEN")
-reddit = asyncpraw.Reddit(
+
+reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),
     client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
     user_agent=os.getenv("REDDIT_USER_AGENT"),
