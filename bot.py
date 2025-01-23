@@ -20,11 +20,18 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.GG90uw.9uTqAaM2ru7glFhEAdI8AeyO1x3GR_OaSN5wWA")
+
+token = os.getenv('BOT_TOKEN')
+client_id = os.getenv('REDDIT_CLIENT_ID')
+client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+user_agent = os.getenv('USER_AGENT')
+
+
 reddit = asyncpraw.Reddit(
-    client_id= ("SSyW_YrpPGnn9aFpqwCWCQ"),
-    client_secret= ("yZGOcZn8GJlcrtI2avrVkex2yVAkig"),
-    user_agent="Auto Memer",
+    client_id=client_id,
+    client_secret=client_secret,
+    user_agent=user_agent,
+    token=token
 )
 
 # Bot Setup
