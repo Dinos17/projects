@@ -21,17 +21,17 @@ from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
 
-token = "BOT_TOKEN"
-
 client_id = "your_client_id_here"
 client_secret = "your_client_secret_here"
 user_agent = "Auto Memer"
+bot_token = "BOT_TOKEN"
 
 
 reddit = praw.Reddit(
     client_id=client_id,
     client_secret=client_secret,
-    user_agent=user_agent
+    user_agent=user_agent,
+    token=bot_token  # Use the token for OAuth
 )
 
 # Bot Setup
