@@ -1,3 +1,4 @@
+
 # ===== IMPORTS =====
 import discord
 from discord.ext import commands
@@ -20,7 +21,6 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-
 TOKEN = os.getenv("BOT_TOKEN")
 client_id = os.getenv("REDDIT_CLIENT_ID")
 client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -69,13 +69,13 @@ def format_time(seconds):
     else:
         return f"{seconds // 3600} hours {(seconds % 3600) // 60} min"
 
-async def get_meme(subreddit_name="memes"):
+def get_meme(subreddit_name="memes"):
     try:
-        # Fetch subreddit posts asynchronously
-        subreddit = await reddit.subreddit(subreddit_name)
+        # Fetch subreddit posts
+        subreddit = reddit.subreddit(subreddit_name)
         posts = [
             post
-            async for post in subreddit.hot(limit=50)
+            for post in subreddit.hot(limit=50)
             if post.url.endswith(("jpg", "jpeg", "png", "gif"))
         ]
 
@@ -134,10 +134,16 @@ def setup_watchdog(path_to_watch=".", script_path=__file__):
 
 # ===== CORE FUNCTIONALITY =====
 async def post_meme_to_channel(channel, interval, subreddit_name):
+    global memes_posted
     while True:
-        meme_url, meme_title = await get_meme(subreddit_name)
+        if channel.id in stopped_channels:
+            break
+        meme_url, meme_title = await get_meme(subreddit_name)  # Fetch meme from the given subreddit
         if meme_url:
             await channel.send(f"**{meme_title}**\n{meme_url}")
+            memes_posted += 1
+        
+        # Wait for the next interval before posting another meme
         await asyncio.sleep(interval)
 
 # ===== EVENT HANDLERS =====
@@ -332,18 +338,58 @@ async def vote(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=view)
 
 @bot.tree.command(name="meme", description="Fetch and post a meme from a specific subreddit.")
-async def meme(interaction: discord.Interaction, subreddit: str = "memes"):
-    global meme_command_count
-    meme_command_count += 1
-    await interaction.response.defer()
+async def meme(
+    interaction: discord.Interaction,
+    subreddit: str = "memes"  # Default to r/memes but allow custom subreddits
+):
+    global meme_command_count  # Access the global counter
+    meme_command_count += 1  # Increment the counter only here
+    await interaction.response.defer()  # Defer response if meme takes time to fetch
     
-    meme_url, meme_title = await get_meme(subreddit)  # Ensure 'await' is used
-    if meme_url:
-        embed = discord.Embed(title=meme_title, color=discord.Color.random())
-        embed.set_image(url=meme_url)
-        await interaction.followup.send(embed=embed)
-    else:
-        await interaction.followup.send("Couldn't fetch a meme, try again later.")
+    try:
+        meme_url, meme_title = get_meme(subreddit)
+        if meme_url:
+            embed = discord.Embed(
+                title=meme_title,
+                color=discord.Color.random()
+            )
+            embed.set_image(url=meme_url)
+            embed.set_footer(text=f"From r/{subreddit} | Requested by {interaction.user}")
+            
+            # Create buttons
+            refresh_button = Button(label="New Meme", style=discord.ButtonStyle.primary, emoji="🔄")
+            like_button = Button(label="Like", style=discord.ButtonStyle.success, emoji="👍")
+            
+            async def refresh_callback(button_interaction: discord.Interaction):
+                global meme_command_count  # Access the global counter
+                meme_command_count += 1  # Increment the counter for the new meme
+                new_meme_url, new_meme_title = get_meme(subreddit)
+                if new_meme_url:
+                    new_embed = discord.Embed(
+                        title=new_meme_title,
+                        color=discord.Color.random()
+                    )
+                    new_embed.set_image(url=new_meme_url)
+                    new_embed.set_footer(text=f"From r/{subreddit} | Requested by {interaction.user}")
+                    await button_interaction.response.edit_message(embed=new_embed, view=view)
+                else:
+                    await button_interaction.response.send_message("Couldn't fetch a new meme!", ephemeral=True)
+            
+            async def like_callback(button_interaction: discord.Interaction):
+                await button_interaction.response.send_message("Thanks for liking the meme! 😊", ephemeral=True)
+            
+            refresh_button.callback = refresh_callback
+            like_button.callback = like_callback
+            
+            view = View()
+            view.add_item(refresh_button)
+            view.add_item(like_button)
+            
+            await interaction.followup.send(embed=embed, view=view)
+        else:
+            await interaction.followup.send(f"Couldn't fetch a meme from r/{subreddit}. Try another subreddit!", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
 
 @bot.tree.command(name="meme_search", description="Search for memes with specific keywords.")
 async def meme_search(interaction: discord.Interaction, keyword: str):
@@ -915,3 +961,4 @@ def run_bot():
 
 if __name__ == "__main__":
     run_bot()
+
