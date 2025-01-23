@@ -20,9 +20,8 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOT_TOKEN")
-
-reddit = praw.Reddit(
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+reddit = asyncpraw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),
     client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
     user_agent="Auto Memer",
@@ -39,9 +38,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 active_channels = {}  # Stores active channels and their intervals
 stopped_channels = set()  # Channels where meme posting is paused
 memes_posted = 0  # Counter for memes posted
+meme_command_count = 0  # Counter for /meme command usage
 command_history_list = deque(maxlen=30)  # Stores last 30 commands
 last_sync_time = None
 SYNC_COOLDOWN = 60  # Cooldown in seconds
+
+# Define your support server channel ID
+SUPPORT_CHANNEL_ID = 1331983087898460160  # Replace with your actual channel ID
 
 # ===== UTILITY FUNCTIONS =====
 def parse_time(time_str):
@@ -110,16 +113,13 @@ class BotFileChangeHandler(FileSystemEventHandler):
             print(f"\nFile {event.src_path} has been modified.")
             print("Restarting bot...")
             try:
-                # Start new bot process
                 subprocess.Popen([sys.executable, self.script_path])
-                # Exit current process
                 sys.exit()
             except Exception as e:
                 print(f"Error restarting bot: {e}")
                 self.restart_pending = False
 
 def setup_watchdog(path_to_watch=".", script_path=__file__):
-    """Setup and start the watchdog observer in a separate thread"""
     event_handler = BotFileChangeHandler(script_path)
     observer = Observer()
     observer.schedule(event_handler, path=path_to_watch, recursive=False)
@@ -132,7 +132,7 @@ async def post_meme_to_channel(channel, interval, subreddit_name):
     while True:
         if channel.id in stopped_channels:
             break
-        meme_url, meme_title = get_meme(subreddit_name)  # Fetch meme from the given subreddit
+        meme_url, meme_title = await get_meme(subreddit_name)  # Fetch meme from the given subreddit
         if meme_url:
             await channel.send(f"**{meme_title}**\n{meme_url}")
             memes_posted += 1
@@ -206,7 +206,6 @@ async def help_command(interaction: discord.Interaction):
             name="🎮 Fun Commands",
             value=(
                 "`/random_joke [channel]` - Fetch and post a random joke\n"
-                "`/poll <question> <options>` - Create a poll\n"
                 "`/ping` - Check bot's latency"
             ),
             inline=False
@@ -329,6 +328,8 @@ async def meme(
     interaction: discord.Interaction,
     subreddit: str = "memes"  # Default to r/memes but allow custom subreddits
 ):
+    global meme_command_count  # Access the global counter
+    meme_command_count += 1  # Increment the counter only here
     await interaction.response.defer()  # Defer response if meme takes time to fetch
     
     try:
@@ -346,6 +347,8 @@ async def meme(
             like_button = Button(label="Like", style=discord.ButtonStyle.success, emoji="👍")
             
             async def refresh_callback(button_interaction: discord.Interaction):
+                global meme_command_count  # Access the global counter
+                meme_command_count += 1  # Increment the counter for the new meme
                 new_meme_url, new_meme_title = get_meme(subreddit)
                 if new_meme_url:
                     new_embed = discord.Embed(
@@ -376,9 +379,10 @@ async def meme(
 
 @bot.tree.command(name="meme_search", description="Search for memes with specific keywords.")
 async def meme_search(interaction: discord.Interaction, keyword: str):
-    await interaction.response.defer()
-    
     try:
+        # First, acknowledge the interaction
+        await interaction.response.defer()
+        
         # Search in multiple meme subreddits
         subreddits = ["memes", "dankmemes", "funny"]
         found_memes = []
@@ -397,26 +401,96 @@ async def meme_search(interaction: discord.Interaction, keyword: str):
                     })
         
         if found_memes:
-            # Sort by score and take top 5
+            # Sort by score
             found_memes.sort(key=lambda x: x["score"], reverse=True)
-            found_memes = found_memes[:5]
+            current_index = 0
             
-            embeds = []
-            for meme in found_memes:
-                embed = discord.Embed(
-                    title=meme["title"],
+            # Create embed for first meme
+            embed = discord.Embed(
+                title=found_memes[current_index]["title"],
+                color=discord.Color.random()
+            )
+            embed.set_image(url=found_memes[current_index]["url"])
+            embed.set_footer(
+                text=f"Meme {current_index + 1}/{len(found_memes)} | "
+                f"From r/{found_memes[current_index]['subreddit']} | "
+                f"Score: {found_memes[current_index]['score']}"
+            )
+            
+            # Create navigation buttons
+            previous_button = Button(
+                label="Previous",
+                style=discord.ButtonStyle.primary,
+                emoji="⬅️",
+                disabled=True
+            )
+            next_button = Button(
+                label="Next",
+                style=discord.ButtonStyle.primary,
+                emoji="➡️",
+                disabled=len(found_memes) <= 1
+            )
+            
+            async def previous_callback(button_interaction: discord.Interaction):
+                nonlocal current_index
+                current_index -= 1
+                await update_meme(button_interaction)
+                
+            async def next_callback(button_interaction: discord.Interaction):
+                nonlocal current_index
+                current_index += 1
+                await update_meme(button_interaction)
+                
+            async def update_meme(button_interaction: discord.Interaction):
+                # Update embed with new meme
+                new_embed = discord.Embed(
+                    title=found_memes[current_index]["title"],
                     color=discord.Color.random()
                 )
-                embed.set_image(url=meme["url"])
-                embed.set_footer(text=f"From r/{meme['subreddit']} | Score: {meme['score']}")
-                embeds.append(embed)
+                new_embed.set_image(url=found_memes[current_index]["url"])
+                new_embed.set_footer(
+                    text=f"Meme {current_index + 1}/{len(found_memes)} | "
+                    f"From r/{found_memes[current_index]['subreddit']} | "
+                    f"Score: {found_memes[current_index]['score']}"
+                )
+                
+                # Update button states
+                previous_button.disabled = current_index == 0
+                next_button.disabled = current_index == len(found_memes) - 1
+                
+                await button_interaction.response.edit_message(
+                    embed=new_embed,
+                    view=view
+                )
             
-            await interaction.followup.send(f"Found {len(embeds)} memes matching '{keyword}':", embeds=embeds)
+            previous_button.callback = previous_callback
+            next_button.callback = next_callback
+            
+            view = View()
+            view.add_item(previous_button)
+            view.add_item(next_button)
+            
+            await interaction.followup.send(
+                f"Found {len(found_memes)} memes matching '{keyword}':",
+                embed=embed,
+                view=view
+            )
         else:
-            await interaction.followup.send(f"No memes found matching '{keyword}'.", ephemeral=True)
+            await interaction.followup.send(f"No memes found matching '{keyword}'.")
             
     except Exception as e:
-        await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
+        # If the interaction hasn't been acknowledged yet, acknowledge it with an error message
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                f"An error occurred: {str(e)}",
+                ephemeral=True
+            )
+        # If it has been acknowledged, use followup
+        else:
+            await interaction.followup.send(
+                f"An error occurred: {str(e)}",
+                ephemeral=True
+            )
 
 @bot.tree.command(name="top_memes", description="Get top memes from the last day/week/month/year.")
 async def top_memes(
@@ -618,6 +692,7 @@ async def stats(interaction: discord.Interaction):
     def generate_stats_embed():
         embed = Embed(title="Bot Statistics", color=discord.Color.green())
         embed.add_field(name="Memes Posted", value=str(memes_posted), inline=True)
+        embed.add_field(name="Meme Commands Used", value=str(meme_command_count), inline=True)
         embed.add_field(
             name="Active Channels", value=str(len(active_channels)), inline=True
         )
@@ -747,10 +822,119 @@ async def ping(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="serverinfo", description="Display information about the server.")
+async def serverinfo(interaction: discord.Interaction):
+    guild = interaction.guild
+    
+    embed = discord.Embed(
+        title=f"📊 {guild.name} Server Information",
+        color=discord.Color.blue()
+    )
+    
+    # Server info
+    embed.add_field(name="Owner", value=guild.owner.mention, inline=True)
+    embed.add_field(name="Created On", value=guild.created_at.strftime("%B %d, %Y"), inline=True)
+    embed.add_field(name="Server ID", value=guild.id, inline=True)
+    
+    # Member stats
+    total_members = len(guild.members)
+    humans = len([m for m in guild.members if not m.bot])
+    bots = total_members - humans
+    embed.add_field(name="Total Members", value=total_members, inline=True)
+    embed.add_field(name="Humans", value=humans, inline=True)
+    embed.add_field(name="Bots", value=bots, inline=True)
+    
+    # Channel stats
+    text_channels = len(guild.text_channels)
+    voice_channels = len(guild.voice_channels)
+    categories = len(guild.categories)
+    embed.add_field(name="Text Channels", value=text_channels, inline=True)
+    embed.add_field(name="Voice Channels", value=voice_channels, inline=True)
+    embed.add_field(name="Categories", value=categories, inline=True)
+    
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="userinfo", description="Display information about a user.")
+async def userinfo(interaction: discord.Interaction, user: discord.Member = None):
+    user = user or interaction.user
+    
+    embed = discord.Embed(
+        title=f"👤 User Information for {user.name}",
+        color=user.color if user.color != discord.Color.default() else discord.Color.blue()
+    )
+    
+    embed.add_field(name="User ID", value=user.id, inline=True)
+    embed.add_field(name="Nickname", value=user.nick or "None", inline=True)
+    embed.add_field(name="Bot", value="Yes" if user.bot else "No", inline=True)
+    
+    embed.add_field(name="Account Created", value=user.created_at.strftime("%B %d, %Y"), inline=True)
+    embed.add_field(name="Joined Server", value=user.joined_at.strftime("%B %d, %Y"), inline=True)
+    
+    roles = [role.mention for role in user.roles if role.name != "@everyone"]
+    embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles) if roles else "None", inline=False)
+    
+    embed.set_thumbnail(url=user.display_avatar.url)
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="report", description="Report an issue with the bot.")
+async def report(interaction: discord.Interaction, issue: str):
+    # Create embed for the report
+    embed = discord.Embed(
+        title="🐛 Bug Report",
+        description=issue,
+        color=discord.Color.red(),
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="Reported by", value=f"{interaction.user.mention} ({interaction.user.id})")
+    embed.add_field(name="Server", value=f"{interaction.guild.name} ({interaction.guild.id})")
+
+    # Get the support channel
+    support_channel = bot.get_channel(SUPPORT_CHANNEL_ID)
+    
+    if support_channel:
+        # Send the report to the support channel
+        report_message = await support_channel.send(embed=embed)
+
+        # Create buttons for staff to interact with
+        acknowledge_button = Button(label="Acknowledge", style=discord.ButtonStyle.success)
+        resolve_button = Button(label="Resolve", style=discord.ButtonStyle.primary)
+
+        async def acknowledge_callback(button_interaction: discord.Interaction):
+            await button_interaction.response.send_message("Report acknowledged.", ephemeral=True)
+            await report_message.add_reaction("✅")  # Add a checkmark reaction to the report message
+
+        async def resolve_callback(button_interaction: discord.Interaction):
+            await button_interaction.response.send_message("Report resolved.", ephemeral=True)
+            await report_message.add_reaction("🔒")  # Add a lock reaction to indicate resolution
+
+        acknowledge_button.callback = acknowledge_callback
+        resolve_button.callback = resolve_callback
+
+        view = View()
+        view.add_item(acknowledge_button)
+        view.add_item(resolve_button)
+
+        # Edit the report message to include the buttons
+        await report_message.edit(view=view)
+
+        # Send confirmation to the user
+        await interaction.response.send_message(
+            "Thank you for your report! Our team will look into it.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            "There was an error sending your report. Please try again later.",
+            ephemeral=True
+        )
+
 # ===== MAIN EXECUTION =====
 def run_bot():
     try:
-        # Start the watchdog before running the bot
         observer = setup_watchdog()
         try:
             bot.run(TOKEN)
