@@ -132,20 +132,26 @@ def setup_watchdog(path_to_watch=".", script_path=__file__):
     return observer
 
 # ===== CORE FUNCTIONALITY =====
-async def get_meme(subreddit_name="memes"):
-    try:
-        subreddit = await reddit.subreddit(subreddit_name)  # Await here to get the subreddit object
-        posts = [post async for post in subreddit.hot(limit=50) if post.url.endswith(("jpg", "jpeg", "png", "gif"))]
+async def post_meme_to_channel(channel, interval, search_query):
+    """Posts memes to a specified channel at regular intervals."""
+    while channel.id in active_channels and channel.id not in stopped_channels:
+        try:
+            # Fetch a meme from the specified subreddit
+            meme_url, meme_title = await get_meme(search_query)
+            if meme_url:
+                embed = discord.Embed(
+                    title=meme_title,
+                    color=discord.Color.random()
+                )
+                embed.set_image(url=meme_url)
+                embed.set_footer(text=f"From r/{search_query}")
 
-        if not posts:
-            return None, "No suitable memes found."
-
-        post = random.choice(posts)
-        return post.url, post.title
-
-    except Exception as e:
-        print(f"Error fetching meme: {e}")
-        return None, None
+                await channel.send(embed=embed)
+            else:
+                await channel.send(f"Could not fetch a meme from r/{search_query}. Trying again later.")
+        except Exception as e:
+            print(f"Error posting meme: {e}")
+        await asyncio.sleep(interval)
 
 # ===== EVENT HANDLERS =====
 @bot.event
