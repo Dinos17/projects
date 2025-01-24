@@ -68,20 +68,20 @@ def format_time(seconds):
     else:
         return f"{seconds // 3600} hours {(seconds % 3600) // 60} min"
 
-def get_meme(subreddit_name="memes"):
+reddit = asyncpraw.Reddit(
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    user_agent="Auto Memer",
+)
+
+async def get_meme(subreddit_name="memes"):
     try:
-        # Fetch subreddit posts
-        subreddit = reddit.subreddit(subreddit_name)
-        posts = [
-            post
-            for post in subreddit.hot(limit=50)
-            if post.url.endswith(("jpg", "jpeg", "png", "gif"))
-        ]
+        subreddit = reddit.subreddit(subreddit_name)  # No 'await' here
+        posts = [post async for post in subreddit.hot(limit=50) if post.url.endswith(("jpg", "jpeg", "png", "gif"))]
 
         if not posts:
             return None, "No suitable memes found."
 
-        # Select a random post from the list of fetched posts
         post = random.choice(posts)
         return post.url, post.title
 
