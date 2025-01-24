@@ -1,3 +1,4 @@
+
 # ===== IMPORTS =====
 import discord
 from discord.ext import commands
@@ -20,16 +21,11 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOT_TOKEN")
-client_id = os.getenv("REDDIT_CLIENT_ID")
-client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-user_agent = os.getenv("REDDIT_USER_AGENT")
-
-# Initialize Reddit instance with praw (no token needed)
-reddit = praw.Reddit(
-    client_id=client_id,
-    client_secret=client_secret,
-    user_agent=user_agent
+TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.GG90uw.9uTqAaM2ru7glFhEAdI8AeyO1x3GR_OaSN5wWA")
+reddit = asyncpraw.Reddit(
+    client_id= ("SSyW_YrpPGnn9aFpqwCWCQ"),
+    client_secret= ("yZGOcZn8GJlcrtI2avrVkex2yVAkig"),
+    user_agent="Auto Memer",
 )
 
 # Bot Setup
@@ -68,20 +64,20 @@ def format_time(seconds):
     else:
         return f"{seconds // 3600} hours {(seconds % 3600) // 60} min"
 
-reddit = asyncpraw.Reddit(
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
-    user_agent="Auto Memer",
-)
-
-async def get_meme(subreddit_name="memes"):
+def get_meme(subreddit_name="memes"):
     try:
-        subreddit = reddit.subreddit(subreddit_name)  # No 'await' here
-        posts = [post async for post in subreddit.hot(limit=50) if post.url.endswith(("jpg", "jpeg", "png", "gif"))]
+        # Fetch subreddit posts
+        subreddit = reddit.subreddit(subreddit_name)
+        posts = [
+            post
+            for post in subreddit.hot(limit=50)
+            if post.url.endswith(("jpg", "jpeg", "png", "gif"))
+        ]
 
         if not posts:
             return None, "No suitable memes found."
 
+        # Select a random post from the list of fetched posts
         post = random.choice(posts)
         return post.url, post.title
 
@@ -132,25 +128,17 @@ def setup_watchdog(path_to_watch=".", script_path=__file__):
     return observer
 
 # ===== CORE FUNCTIONALITY =====
-async def post_meme_to_channel(channel, interval, search_query):
-    """Posts memes to a specified channel at regular intervals."""
-    while channel.id in active_channels and channel.id not in stopped_channels:
-        try:
-            # Fetch a meme from the specified subreddit
-            meme_url, meme_title = await get_meme(search_query)
-            if meme_url:
-                embed = discord.Embed(
-                    title=meme_title,
-                    color=discord.Color.random()
-                )
-                embed.set_image(url=meme_url)
-                embed.set_footer(text=f"From r/{search_query}")
-
-                await channel.send(embed=embed)
-            else:
-                await channel.send(f"Could not fetch a meme from r/{search_query}. Trying again later.")
-        except Exception as e:
-            print(f"Error posting meme: {e}")
+async def post_meme_to_channel(channel, interval, subreddit_name):
+    global memes_posted
+    while True:
+        if channel.id in stopped_channels:
+            break
+        meme_url, meme_title = await get_meme(subreddit_name)  # Fetch meme from the given subreddit
+        if meme_url:
+            await channel.send(f"**{meme_title}**\n{meme_url}")
+            memes_posted += 1
+        
+        # Wait for the next interval before posting another meme
         await asyncio.sleep(interval)
 
 # ===== EVENT HANDLERS =====
