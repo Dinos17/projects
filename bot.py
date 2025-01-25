@@ -18,18 +18,17 @@ import asyncpraw
 import subprocess
 from discord.app_commands import checks
 from datetime import datetime, timedelta
+import aiohttp
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOT_TOKEN")
-client_id = os.getenv("REDDIT_CLIENT_ID")
-client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-user_agent = os.getenv("REDDIT_USER_AGENT")
+TOKEN = os.getenv("BOT_TOKEN")  # Use environment variable for the bot token
+REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")  # Use environment variable for Reddit client ID
+REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")  # Use environment variable for Reddit client secret
 
-# Initialize Reddit instance with praw (no token needed)
 reddit = praw.Reddit(
-    client_id=client_id,
-    client_secret=client_secret,
-    user_agent=user_agent
+    client_id=REDDIT_CLIENT_ID,
+    client_secret=REDDIT_CLIENT_SECRET,
+    user_agent="Auto Memer",
 )
 
 # Bot Setup
@@ -91,14 +90,13 @@ def get_meme(subreddit_name="memes"):
 
 def get_joke():
     try:
-        response = requests.get("https://v2.jokeapi.dev/joke/Any?type=twopart")
+        response = requests.get("https://v2.jokeapi.dev/joke/Programming,Miscellaneous?type=twopart")
         if response.status_code == 200:
             joke_data = response.json()
             if joke_data["type"] == "twopart":
                 return joke_data["setup"], joke_data["delivery"]
             else:
-                print("Unexpected joke type.")
-                return None, None
+                return joke_data["joke"], None  # For single-part jokes
         else:
             print("Failed to fetch joke.")
             return None, None
@@ -137,13 +135,18 @@ async def post_meme_to_channel(channel, interval, subreddit_name):
     while True:
         if channel.id in stopped_channels:
             break
-        meme_url, meme_title = await get_meme(subreddit_name)  # Fetch meme from the given subreddit
+        meme_url, meme_title = get_meme(subreddit_name)  # Remove await here
         if meme_url:
             await channel.send(f"**{meme_title}**\n{meme_url}")
             memes_posted += 1
         
         # Wait for the next interval before posting another meme
         await asyncio.sleep(interval)
+
+async def fetch_data(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.json()
 
 # ===== EVENT HANDLERS =====
 @bot.event
@@ -155,9 +158,11 @@ async def on_ready():
         current_time = datetime.now()
         
         if not last_sync_time or (current_time - last_sync_time).total_seconds() > SYNC_COOLDOWN:
+            start_time = time.time()
             synced = await bot.tree.sync()  # Sync commands when the bot is ready
             last_sync_time = current_time
             print(f"Synced {len(synced)} command(s)")
+            print(f"Sync time: {time.time() - start_time} seconds")
         else:
             print("Skipping command sync due to cooldown")
     except Exception as e:
@@ -172,7 +177,7 @@ async def on_message(message):
     # Keyword-based trigger
     keywords = ["post a meme", "send meme"]
     if any(keyword in message.content.lower() for keyword in keywords):
-        meme_url, meme_title = get_meme("funny")
+        meme_url, meme_title = get_meme("funny")  # Remove await here
         if meme_url:
             await message.channel.send(f"**{meme_title}**\n{meme_url}")
         else:
@@ -290,7 +295,9 @@ async def sync(interaction: discord.Interaction):
         return  # Exit if the interaction is no longer valid
 
     try:
-        synced = await bot.tree.sync()
+        # Sync commands
+        start_time = time.time()
+        synced = await bot.tree.sync(guild=interaction.guild)  # Sync only for the current guild
         last_sync_time = current_time
         
         # Check if the interaction response is still valid before sending a message
@@ -346,7 +353,7 @@ async def meme(
     await interaction.response.defer()  # Defer response if meme takes time to fetch
     
     try:
-        meme_url, meme_title = get_meme(subreddit)
+        meme_url, meme_title = get_meme(subreddit)  # Remove await here
         if meme_url:
             embed = discord.Embed(
                 title=meme_title,
@@ -362,7 +369,7 @@ async def meme(
             async def refresh_callback(button_interaction: discord.Interaction):
                 global meme_command_count  # Access the global counter
                 meme_command_count += 1  # Increment the counter for the new meme
-                new_meme_url, new_meme_title = get_meme(subreddit)
+                new_meme_url, new_meme_title = get_meme(subreddit)  # Remove await here
                 if new_meme_url:
                     new_embed = discord.Embed(
                         title=new_meme_title,
@@ -402,7 +409,7 @@ async def meme_search(interaction: discord.Interaction, keyword: str):
         
         for subreddit_name in subreddits:
             subreddit = reddit.subreddit(subreddit_name)
-            search_results = subreddit.search(keyword, limit=5)
+            search_results = subreddit.search(keyword, limit=5)  # Use the keyword for searching
             
             for post in search_results:
                 if post.url.endswith(("jpg", "jpeg", "png", "gif")):
@@ -781,6 +788,7 @@ async def random_joke(
         return
 
     setup, punchline = get_joke()
+    
     if setup and punchline:
         # Create embed
         embed = discord.Embed(
@@ -960,4 +968,3 @@ def run_bot():
 
 if __name__ == "__main__":
     run_bot()
-
