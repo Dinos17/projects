@@ -35,8 +35,8 @@ reddit = praw.Reddit(
 intents = discord.Intents.default()
 intents.messages = True  # Enables access to message events
 intents.message_content = True  # Allows access to message content
-intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+intents.members = True  # Allows access to member events
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 # ===== GLOBAL VARIABLES =====
 active_channels = {}  # Stores active channels and their intervals
@@ -116,8 +116,9 @@ class BotFileChangeHandler(FileSystemEventHandler):
             print(f"\nFile {event.src_path} has been modified.")
             print("Restarting bot...")
             try:
+                # Start a new process for the bot
                 subprocess.Popen([sys.executable, self.script_path])
-                sys.exit()
+                sys.exit()  # Exit the current process
             except Exception as e:
                 print(f"Error restarting bot: {e}")
                 self.restart_pending = False
@@ -563,11 +564,11 @@ async def top_memes(
     except Exception as e:
         await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
 
-@bot.tree.command(name="memes_by_number", description="Fetch a specific number of memes (max 50).")
+@bot.tree.command(name="memes_by_number", description="Fetch a specific number of memes (max 20).")
 async def memes_by_number(interaction: discord.Interaction, count: int):
-    if count < 1 or count > 50:
+    if count < 1 or count > 20:
         await interaction.response.send_message(
-            "Please provide a number between 1 and 50."
+            "Please provide a number between 1 and 20."
         )
         return
 
@@ -576,13 +577,11 @@ async def memes_by_number(interaction: discord.Interaction, count: int):
         subreddit = reddit.subreddit("memes")
 
         # Fetch 'count' number of posts from the subreddit
-        posts = subreddit.new(
-            limit=count
-        )  # 'limit=count' ensures we're fetching exactly 'count' posts
+        posts = subreddit.new(limit=count)
 
         # Prepare a list of memes with necessary information
         memes = []
-        for post in posts:  # Use a regular 'for' loop to iterate over the posts
+        for post in posts:
             memes.append(
                 {
                     "title": post.title,
@@ -613,10 +612,12 @@ async def memes_by_number(interaction: discord.Interaction, count: int):
             embed.set_footer(text=f"👍 {meme['ups']} | Author: {meme['author']}")
             embeds.append(embed)
 
-        # Send the embed messages with memes to Discord
-        await interaction.response.send_message(
-            f"Here are your {count} memes:", embeds=embeds
-        )
+        # Send the embed messages with memes to Discord, limiting to 10 embeds per message
+        for i in range(0, len(embeds), 10):
+            await interaction.response.send_message(
+                f"Here are your memes {i + 1}-{min(i + 10, len(embeds))}:",
+                embeds=embeds[i:i + 10]
+            )
     except asyncpraw.exceptions.PRAWException as e:
         print(f"Error fetching memes: {e}")
         await interaction.response.send_message(
@@ -952,6 +953,18 @@ async def report(interaction: discord.Interaction, issue: str):
             "There was an error sending your report. Please try again later.",
             ephemeral=True
         )
+
+@bot.tree.command(name="clearall", description="Clear all messages in the channel.")
+async def clear_all(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("You need administrator permissions to use this command.", ephemeral=True)
+        return
+
+    await interaction.response.send_message("Clearing all messages...", ephemeral=True)
+    
+    # Purge messages in the channel
+    await interaction.channel.purge()
+    await interaction.channel.send("All messages have been cleared.")
 
 # ===== MAIN EXECUTION =====
 def run_bot():
