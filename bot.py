@@ -9,8 +9,6 @@ import requests
 from collections import deque
 import os
 import sys
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 import time
 import random
 import praw
@@ -19,33 +17,31 @@ import subprocess
 from discord.app_commands import checks
 from datetime import datetime, timedelta
 import aiohttp
+import logging
+
+# Set logging level to ERROR to suppress WARNING and INFO messages
+logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOT_TOKEN")  # Use environment variable for the bot token
-REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")  # Use environment variable for Reddit client ID
-REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")  # Use environment variable for Reddit client secret
-
+TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.GFTpyf.JJosZBH_ssZDKTBDVqAn0j0Pe0k_MnQ1CqNOfc")
 reddit = praw.Reddit(
-    client_id=REDDIT_CLIENT_ID,
-    client_secret=REDDIT_CLIENT_SECRET,
+    client_id= ("SSyW_YrpPGnn9aFpqwCWCQ"),
+    client_secret= ("yZGOcZn8GJlcrtI2avrVkex2yVAkig"),
     user_agent="Auto Memer",
 )
 
-# Bot Setup
-intents = discord.Intents.default()
-intents.messages = True  # Enables access to message events
-intents.message_content = True  # Allows access to message content
-intents.members = True  # Allows access to member events
-bot = commands.Bot(command_prefix="/", intents=intents)
+# Create the bot without any specific intents
+intents = discord.Intents.default()  # Create default intents
+bot = commands.Bot(command_prefix="/", intents=intents)  # Pass intents to the bot
 
 # ===== GLOBAL VARIABLES =====
-active_channels = {}  # Stores active channels and their intervals
-stopped_channels = set()  # Channels where meme posting is paused
-memes_posted = 0  # Counter for memes posted
-meme_command_count = 0  # Counter for /meme command usage
-command_history_list = deque(maxlen=30)  # Stores last 30 commands
+active_channels = {}
+stopped_channels = set()
+memes_posted = 0
+meme_command_count = 0
+command_history_list = deque(maxlen=30)
 last_sync_time = None
-SYNC_COOLDOWN = 60  # Cooldown in seconds
+SYNC_COOLDOWN = 60
 
 # Define your support server channel ID
 SUPPORT_CHANNEL_ID = 1331983087898460160  # Replace with your actual channel ID
@@ -69,7 +65,6 @@ def format_time(seconds):
 
 def get_meme(subreddit_name="memes"):
     try:
-        # Fetch subreddit posts
         subreddit = reddit.subreddit(subreddit_name)
         posts = [
             post
@@ -80,7 +75,6 @@ def get_meme(subreddit_name="memes"):
         if not posts:
             return None, "No suitable memes found."
 
-        # Select a random post from the list of fetched posts
         post = random.choice(posts)
         return post.url, post.title
 
@@ -104,32 +98,6 @@ def get_joke():
         print(f"Error fetching joke: {e}")
         return None, None
 
-# ===== AUTO-RESTART FUNCTIONALITY =====
-class BotFileChangeHandler(FileSystemEventHandler):
-    def __init__(self, script_path):
-        self.script_path = script_path
-        self.restart_pending = False
-        
-    def on_modified(self, event):
-        if event.src_path.endswith(".py") and not self.restart_pending:
-            self.restart_pending = True
-            print(f"\nFile {event.src_path} has been modified.")
-            print("Restarting bot...")
-            try:
-                # Start a new process for the bot
-                subprocess.Popen([sys.executable, self.script_path])
-                sys.exit()  # Exit the current process
-            except Exception as e:
-                print(f"Error restarting bot: {e}")
-                self.restart_pending = False
-
-def setup_watchdog(path_to_watch=".", script_path=__file__):
-    event_handler = BotFileChangeHandler(script_path)
-    observer = Observer()
-    observer.schedule(event_handler, path=path_to_watch, recursive=False)
-    observer.start()
-    return observer
-
 # ===== CORE FUNCTIONALITY =====
 async def post_meme_to_channel(channel, interval, subreddit_name):
     global memes_posted
@@ -141,7 +109,6 @@ async def post_meme_to_channel(channel, interval, subreddit_name):
             await channel.send(f"**{meme_title}**\n{meme_url}")
             memes_posted += 1
         
-        # Wait for the next interval before posting another meme
         await asyncio.sleep(interval)
 
 async def fetch_data(url):
@@ -152,9 +119,9 @@ async def fetch_data(url):
 # ===== EVENT HANDLERS =====
 @bot.event
 async def on_ready():
-    print(f"Bot is ready as {bot.user}")
+    print(f"Bot is ready as {bot.user.name}")
+    await bot.tree.sync()  # Sync commands on startup
     try:
-        # Only sync commands if they haven't been synced recently
         global last_sync_time
         current_time = datetime.now()
         
@@ -239,8 +206,7 @@ async def help_command(interaction: discord.Interaction):
             name="🛠️ Utility Commands",
             value=(
                 "`/invite` - Get bot invite link\n"
-                "`/report <issue>` - Report an issue with the bot\n"
-                "`/sync` - Sync bot commands (Admin only)"
+                "`/report <issue>` - Report an issue with the bot"
             ),
             inline=False
         )
@@ -268,64 +234,6 @@ async def help_command(interaction: discord.Interaction):
     view.add_item(close_button)
 
     await interaction.response.send_message(embed=help_embed, view=view)
-
-@bot.tree.command(name="sync", description="Manually sync bot commands.")
-async def sync(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("You need administrator permissions to use this command.", ephemeral=True)
-        return
-
-    global last_sync_time
-    current_time = datetime.now()
-
-    # Check cooldown
-    if last_sync_time and (current_time - last_sync_time).total_seconds() < SYNC_COOLDOWN:
-        remaining = int(SYNC_COOLDOWN - (current_time - last_sync_time).total_seconds())
-        await interaction.response.send_message(
-            f"Command sync is on cooldown. Please wait {remaining} seconds.",
-            ephemeral=True
-        )
-        return
-
-    # Attempt to defer the response
-    try:
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
-    except discord.errors.HTTPException as e:
-        print(f"Failed to defer interaction: {e}")
-        return  # Exit if the interaction is no longer valid
-
-    try:
-        # Sync commands
-        start_time = time.time()
-        synced = await bot.tree.sync(guild=interaction.guild)  # Sync only for the current guild
-        last_sync_time = current_time
-        
-        # Check if the interaction response is still valid before sending a message
-        if not interaction.response.is_done():
-            embed = discord.Embed(
-                title="✅ Command Sync Complete",
-                description="All commands have been synchronized successfully!",
-                color=discord.Color.green()
-            )
-            
-            command_list = "\n".join([f"• /{cmd.name}" for cmd in synced]) if synced else "No commands synced"
-            embed.add_field(
-                name="Available Commands",
-                value=f"Synced {len(synced)} commands:\n{command_list}",
-                inline=False
-            )
-            embed.set_footer(text=f"Requested by {interaction.user}")
-
-            await interaction.followup.send(embed=embed, ephemeral=True)
-
-    except Exception as e:
-        error_embed = discord.Embed(
-            title="❌ Sync Failed",
-            description=f"An error occurred while syncing commands:\n```{str(e)}```",
-            color=discord.Color.red()
-        )
-        await interaction.followup.send(embed=error_embed, ephemeral=True)
 
 @bot.tree.command(name="vote", description="Vote for the bot on top.gg.")
 async def vote(interaction: discord.Interaction):
@@ -853,8 +761,9 @@ async def serverinfo(interaction: discord.Interaction):
         color=discord.Color.blue()
     )
     
-    # Server info
-    embed.add_field(name="Owner", value=guild.owner.mention, inline=True)
+    # Check if the owner is available
+    owner_mention = guild.owner.mention if guild.owner else "Unknown"
+    embed.add_field(name="Owner", value=owner_mention, inline=True)
     embed.add_field(name="Created On", value=guild.created_at.strftime("%B %d, %Y"), inline=True)
     embed.add_field(name="Server ID", value=guild.id, inline=True)
     
@@ -954,27 +863,33 @@ async def report(interaction: discord.Interaction, issue: str):
             ephemeral=True
         )
 
-@bot.tree.command(name="clearall", description="Clear all messages in the channel.")
-async def clear_all(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("You need administrator permissions to use this command.", ephemeral=True)
-        return
+@bot.tree.command(name="8ball", description="Ask a question and receive an answer from the magic 8-ball.")
+async def eight_ball(interaction: discord.Interaction, question: str):
+    responses = [
+        "Yes", "No", "Maybe", "Definitely", "Absolutely not",
+        "Ask again later", "I wouldn't count on it", "Yes, in due time",
+        "No, never", "It is certain", "Outlook not so good"
+    ]
+    answer = random.choice(responses)
+    await interaction.response.send_message(f"🎱 **Question:** {question}\n**Answer:** {answer}")
 
-    await interaction.response.send_message("Clearing all messages...", ephemeral=True)
-    
-    # Purge messages in the channel
-    await interaction.channel.purge()
-    await interaction.channel.send("All messages have been cleared.")
+@bot.tree.command(name="define", description="Get the definition of a word.")
+async def define(interaction: discord.Interaction, word: str):
+    try:
+        response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
+        if response.status_code == 200:
+            data = response.json()
+            definition = data[0]['meanings'][0]['definitions'][0]['definition']
+            await interaction.response.send_message(f"**Definition of {word}:** {definition}")
+        else:
+            await interaction.response.send_message(f"Could not find a definition for '{word}'.", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
 
 # ===== MAIN EXECUTION =====
 def run_bot():
     try:
-        observer = setup_watchdog()
-        try:
-            bot.run(TOKEN)
-        finally:
-            observer.stop()
-            observer.join()
+        bot.run(TOKEN)
     except Exception as e:
         print(f"Error occurred: {e}")
         sys.exit(1)
