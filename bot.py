@@ -46,6 +46,9 @@ SYNC_COOLDOWN = 60
 # Define your support server channel ID
 SUPPORT_CHANNEL_ID = 1331983087898460160  # Replace with your actual channel ID
 
+# Global variable to store last answers
+last_answers = []
+
 # ===== UTILITY FUNCTIONS =====
 def parse_time(time_str):
     time_str = time_str.lower().strip()
@@ -120,21 +123,23 @@ async def fetch_data(url):
 @bot.event
 async def on_ready():
     print(f"Bot is ready as {bot.user.name}")
-    await bot.tree.sync()  # Sync commands on startup
+    
+    # Sync commands on startup
     try:
         global last_sync_time
         current_time = datetime.now()
         
+        # Sync commands only if the cooldown period has passed
         if not last_sync_time or (current_time - last_sync_time).total_seconds() > SYNC_COOLDOWN:
             start_time = time.time()
-            synced = await bot.tree.sync()  # Sync commands when the bot is ready
+            synced = await bot.tree.sync(guild=None)  # Sync globally or specify a guild for faster sync
             last_sync_time = current_time
-            print(f"Synced {len(synced)} command(s)")
-            print(f"Sync time: {time.time() - start_time} seconds")
+            print(f"Synced {len(synced)} command(s) in {time.time() - start_time:.2f} seconds")
         else:
             print("Skipping command sync due to cooldown")
     except Exception as e:
         print(f"Error syncing commands: {e}")
+    
     await bot.change_presence(status=discord.Status.online)  # Set the bot's status
 
 @bot.event
@@ -863,28 +868,82 @@ async def report(interaction: discord.Interaction, issue: str):
             ephemeral=True
         )
 
-@bot.tree.command(name="8ball", description="🎱Ask a question and receive an answer from the magic 8-ball.")
+@bot.tree.command(name="8ball", description="🎱 Ask a question and receive an answer from the magic 8-ball.")
 async def eight_ball(interaction: discord.Interaction, question: str):
-    responses = [
-        "Yes", "No", "Maybe", "Definitely", "Absolutely not",
-        "Ask again later", "I wouldn't count on it", "Yes, in due time",
-        "No, never", "It is certain", "Outlook not so good"
+    affirmative_answers = [
+        "It is certain",
+        "It is decidedly so",
+        "Without a doubt",
+        "Yes definitely",
+        "You may rely on it",
+        "As I see it, yes",
+        "Most likely",
+        "Outlook good",
+        "Yes",
+        "Signs point to yes"
     ]
-    answer = random.choice(responses)
-    await interaction.response.send_message(f"🎱 **Question:** {question}\n**Answer:** {answer}")
 
-@bot.tree.command(name="define", description="Get the definition of a word.")
-async def define(interaction: discord.Interaction, word: str):
-    try:
-        response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
-        if response.status_code == 200:
-            data = response.json()
-            definition = data[0]['meanings'][0]['definitions'][0]['definition']
-            await interaction.response.send_message(f"**Definition of {word}:** {definition}")
+    non_committal_answers = [
+        "Reply hazy, try again",
+        "Ask again later",
+        "Better not tell you now",
+        "Cannot predict now",
+        "Concentrate and ask again"
+    ]
+
+    negative_answers = [
+        "Don't count on it",
+        "My reply is no",
+        "My sources say no",
+        "Outlook not so good",
+        "Very doubtful"
+    ]
+
+    # Randomly choose a category and then a response from that category
+    category_choice = random.choices(
+        ["affirmative", "non_committal", "negative"],
+        weights=[0.5, 0.3, 0.2],  # Adjust weights as needed
+        k=1
+    )[0]
+
+    if category_choice == "affirmative":
+        answer = random.choice(affirmative_answers)
+    elif category_choice == "non_committal":
+        answer = random.choice(non_committal_answers)
+    else:
+        answer = random.choice(negative_answers)
+
+    # Store the answer in the history
+    last_answers.append(answer)
+    if len(last_answers) > 5:  # Limit to the last 5 answers
+        last_answers.pop(0)
+
+    # Create an embed for the response
+    embed = discord.Embed(
+        title="🎱 Magic 8-Ball",
+        description=f"**Question:** {question}\n**Answer:** {answer}",
+        color=discord.Color.random()  # Random color for a more vibrant look
+    )
+    embed.set_footer(text="Type your next question in the chat!")
+    embed.set_thumbnail(url="https://example.com/magic8ball.png")  # Add a thumbnail image (replace with a valid URL)
+
+    # Create a button for showing last answers
+    history_button = Button(label="Show Last Answers", style=discord.ButtonStyle.secondary)
+
+    async def history_callback(button_interaction: discord.Interaction):
+        # Display the last answers
+        if last_answers:
+            history_message = "\n".join(f"- {ans}" for ans in last_answers)
+            await button_interaction.response.send_message(f"Last answers:\n{history_message}", ephemeral=True)
         else:
-            await interaction.response.send_message(f"Could not find a definition for '{word}'.", ephemeral=True)
-    except Exception as e:
-        await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
+            await button_interaction.response.send_message("No previous answers available.", ephemeral=True)
+
+    history_button.callback = history_callback
+
+    view = View()
+    view.add_item(history_button)
+
+    await interaction.response.send_message(embed=embed, view=view)
 
 # ===== MAIN EXECUTION =====
 def run_bot():
