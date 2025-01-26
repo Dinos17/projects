@@ -863,7 +863,7 @@ async def report(interaction: discord.Interaction, issue: str):
             ephemeral=True
         )
 
-@bot.tree.command(name="8ball", description="Ask a question and receive an answer from the magic 8-ball.")
+@bot.tree.command(name="8ball", description="🎱Ask a question and receive an answer from the magic 8-ball.")
 async def eight_ball(interaction: discord.Interaction, question: str):
     responses = [
         "Yes", "No", "Maybe", "Definitely", "Absolutely not",
