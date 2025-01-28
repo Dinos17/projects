@@ -23,11 +23,11 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.GFTpyf.JJosZBH_ssZDKTBDVqAn0j0Pe0k_MnQ1CqNOfc")
+TOKEN = ("TOKEN")
 reddit = praw.Reddit(
-    client_id= ("SSyW_YrpPGnn9aFpqwCWCQ"),
-    client_secret= ("yZGOcZn8GJlcrtI2avrVkex2yVAkig"),
-    user_agent="Auto Memer",
+    client_id= ("REDDIT_CLIENT_ID"),
+    client_secret= ("REDDIT_CLIENT_SECRET"),
+    user_agent="(REDDIT_USER_AGENT"),
 )
 
 # Create the bot without any specific intents
