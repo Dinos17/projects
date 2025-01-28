@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
 TOKEN = "TOKEN"  # Use environment variable for TOKEN
-reddit = praw.Reddit(
+reddit = praw.Reddit
     CLIENT_ID="REDDIT_CLIENT_ID",  # Use environment variable for client_id
     CLIENT_SECRET="REDDIT_CLIENT_SECRET",  # Use environment variable for client_secret
     USER_AGENT="REDDIT_USER_AGENT",  # Use a descriptive user agent
