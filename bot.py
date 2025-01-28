@@ -25,9 +25,14 @@ logging.basicConfig(level=logging.ERROR)
 # ===== CONFIGURATION AND SETUP =====
 TOKEN = "TOKEN"  # Use environment variable for TOKEN
 reddit = praw.Reddit(
-    client_id="REDDIT_CLIENT_ID",  # Use environment variable for client_id
-    client_secret="REDDIT_CLIENT_SECRET",  # Use environment variable for client_secret
-    user_agent="REDDIT_USER_AGENT",  # Use a descriptive user agent
+    CLIENT_ID="REDDIT_CLIENT_ID",  # Use environment variable for client_id
+    CLIENT_SECRET="REDDIT_CLIENT_SECRET",  # Use environment variable for client_secret
+    USER_AGENT="REDDIT_USER_AGENT",  # Use a descriptive user agent
+
+    reddit = praw.Reddit(
+    client_id=CLIENT_ID,  # Use the loaded client_id
+    client_secret=CLIENT_SECRET,  # Use the loaded client_secret
+    user_agent="USER_AGENT",
 )
 
 # Create the bot without any specific intents
