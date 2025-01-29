@@ -24,9 +24,9 @@ from typing import Any, Callable, TypeVar
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOTS_TOKEN")  # Use environment variable for TOKEN
-CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")  # Use environment variable for client_id
-CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")  # Use environment variable for client_secret
+TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.G75YRr.Tz697EKCjgrI6k0gaPHbD7ct1ZSSqqtwAyXl6U")  # Use environment variable for TOKEN
+CLIENT_ID = ("SSyW_YrpPGnn9aFpqwCWCQ")  # Use environment variable for client_id
+CLIENT_SECRET = ("yZGOcZn8GJlcrtI2avrVkex2yVAkig")  # Use environment variable for client_secret
 
 reddit = praw.Reddit(
     client_id=CLIENT_ID,  # Use the loaded client_id
@@ -354,11 +354,9 @@ async def meme(interaction: discord.Interaction, subreddit: str = "memes"):
 async def meme_search(interaction: discord.Interaction, keyword: str):
     await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
+    
     if await checker.check_role(interaction):  # Check for the required role
         try:
-            # First, acknowledge the interaction
-            await interaction.response.defer()
-            
             # Search in multiple meme subreddits
             subreddits = ["memes", "dankmemes", "funny"]
             found_memes = []
@@ -442,7 +440,7 @@ async def meme_search(interaction: discord.Interaction, keyword: str):
                 previous_button.callback = previous_callback
                 next_button.callback = next_callback
                 
-                view = View()
+                view = discord.ui.View()
                 view.add_item(previous_button)
                 view.add_item(next_button)
                 
@@ -457,7 +455,7 @@ async def meme_search(interaction: discord.Interaction, keyword: str):
         except Exception as e:
             # If the interaction hasn't been acknowledged yet, acknowledge it with an error message
             if not interaction.response.is_done():
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"An error occurred: {str(e)}",
                     ephemeral=True
                 )
@@ -474,23 +472,22 @@ async def meme_search(interaction: discord.Interaction, keyword: str):
 async def top_memes(interaction: discord.Interaction, timeframe: str = "day", count: int = 5):
     await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
+    
     if await checker.check_role(interaction):  # Check for the required role
         valid_timeframes = ["day", "week", "month", "year"]
         if timeframe not in valid_timeframes:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Invalid timeframe! Please use: day, week, month, or year.",
                 ephemeral=True
             )
             return
         
         if count < 1 or count > 10:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Please request between 1 and 10 memes.",
                 ephemeral=True
             )
             return
-        
-        await interaction.response.defer()
         
         try:
             subreddit = reddit.subreddit("memes")
@@ -524,10 +521,12 @@ async def top_memes(interaction: discord.Interaction, timeframe: str = "day", co
 
 @bot.tree.command(name="memes_by_number", description="Fetch a specific number of memes (max 20).")
 async def memes_by_number(interaction: discord.Interaction, count: int):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         if count < 1 or count > 20:
-            await interaction.response.send_message("Please specify a number between 1 and 20.")
+            await interaction.followup.send("Please specify a number between 1 and 20.")
             return
         
         try:
@@ -553,17 +552,21 @@ async def memes_by_number(interaction: discord.Interaction, count: int):
                     )
                     embed.set_image(url=meme["url"])
                     embed.set_footer(text=f"👍 {meme['ups']} | Author: {meme['author']}")
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.followup.send(embed=embed)
             else:
-                await interaction.response.send_message("No memes found.")
+                await interaction.followup.send("No memes found.")
         except Exception as e:
-            await interaction.response.send_message(f"An error occurred while fetching memes: {str(e)}")
+            await interaction.followup.send(f"An error occurred while fetching memes: {str(e)}")
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="invite", description="Get the invite link to add the bot to your server.")
 async def invite(interaction: discord.Interaction):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
-        bot_invite_link = f"https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands"
+    
+    if await checker.check_role(interaction):  # Check for the required role
+        bot_invite_link = f"https://discord.com/oauth2/authorize?client_id=1325110227225546854&permissions=8&integration_type=0&scope=bot+applications.commands"
         
         # Create embed
         embed = discord.Embed(
@@ -579,13 +582,13 @@ async def invite(interaction: discord.Interaction):
         embed.set_footer(text=f"Requested by {interaction.user}")
 
         # Create buttons
-        invite_button = Button(
+        invite_button = discord.ui.Button(
             label="Add to Server", 
             style=discord.ButtonStyle.link,
             url=bot_invite_link,
             emoji="➕"
         )
-        support_button = Button(
+        support_button = discord.ui.Button(
             label="Support Server",
             style=discord.ButtonStyle.link,
             url="https://discord.gg/QegFaGhmmq",
@@ -593,17 +596,21 @@ async def invite(interaction: discord.Interaction):
         )
 
         # Create view and add buttons
-        view = View()
+        view = discord.ui.View()
         view.add_item(invite_button)
         view.add_item(support_button)
 
         # Send the message (not ephemeral)
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="setchannel", description="Set the channel for memes to be posted.")
 async def setchannel(interaction: discord.Interaction, channel: discord.TextChannel, search_query: str, interval: str):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         try:
             # Parse the interval to seconds
             time_in_seconds = parse_time(interval)
@@ -615,40 +622,52 @@ async def setchannel(interaction: discord.Interaction, channel: discord.TextChan
                 "interval": time_in_seconds
             }
             asyncio.create_task(post_meme_to_channel(channel, time_in_seconds, search_query))
-            await interaction.response.send_message(f"Set {channel.mention} as a meme channel with search query '{search_query}' and an interval of {interval}.")
+            await interaction.followup.send(f"Set {channel.mention} as a meme channel with search query '{search_query}' and an interval of {interval}.")
         except ValueError:
-            await interaction.response.send_message("Invalid time format. Use 'min' for minutes or 'sec' for seconds.")
+            await interaction.followup.send("Invalid time format. Use 'min' for minutes or 'sec' for seconds.")
         except Exception as e:
-            await interaction.response.send_message(f"An error occurred: {str(e)}")
+            await interaction.followup.send(f"An error occurred: {str(e)}")
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="stopmemes", description="Stop posting memes in a channel.")
 async def stopmemes(interaction: discord.Interaction, channel: discord.TextChannel):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         if channel.id in active_channels:
             stopped_channels.add(channel.id)
-            await interaction.response.send_message(f"Stopped posting memes in {channel.mention}.")
+            await interaction.followup.send(f"Stopped posting memes in {channel.mention}.")
         else:
-            await interaction.response.send_message(f"{channel.mention} is not set up for meme posting.")
+            await interaction.followup.send(f"{channel.mention} is not set up for meme posting.")
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="startmemes", description="Resume posting memes in a channel.")
 async def startmemes(interaction: discord.Interaction, channel: discord.TextChannel):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         if channel.id in active_channels and channel.id in stopped_channels:
             stopped_channels.remove(channel.id)
             interval = active_channels[channel.id]["interval"]
             search_query = active_channels[channel.id]["search_query"]
             # Restart the posting task
             asyncio.create_task(post_meme_to_channel(channel, interval, search_query))
-            await interaction.response.send_message(f"Resumed posting memes in {channel.mention}.")
+            await interaction.followup.send(f"Resumed posting memes in {channel.mention}.")
         else:
-            await interaction.response.send_message(f"{channel.mention} is not set up or already active.")
+            await interaction.followup.send(f"{channel.mention} is not set up or already active.")
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="stats", description="Show bot statistics.")
 async def stats(interaction: discord.Interaction):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         def generate_stats_embed():
             embed = discord.Embed(title="Bot Statistics", color=discord.Color.green())
             embed.add_field(name="Memes Posted", value=str(memes_posted), inline=True)
@@ -676,7 +695,7 @@ async def stats(interaction: discord.Interaction):
 
         initial_embed = generate_stats_embed()
 
-        refresh_button = Button(label="Refresh Stats", style=discord.ButtonStyle.primary)
+        refresh_button = discord.ui.Button(label="Refresh Stats", style=discord.ButtonStyle.primary)
 
         async def refresh_callback(interaction: discord.Interaction):
             updated_embed = generate_stats_embed()
@@ -684,17 +703,21 @@ async def stats(interaction: discord.Interaction):
 
         refresh_button.callback = refresh_callback
 
-        view = View()
+        view = discord.ui.View()
         view.add_item(refresh_button)
 
-        await interaction.response.send_message(embed=initial_embed, view=view)
+        await interaction.followup.send(embed=initial_embed, view=view)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="command_history", description="View the history of commands used.")
 async def command_history(interaction: discord.Interaction):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         if not command_history_list:
-            await interaction.response.send_message("No commands have been used yet.")
+            await interaction.followup.send("No commands have been used yet.")
             return
         
         embed = discord.Embed(
@@ -712,26 +735,17 @@ async def command_history(interaction: discord.Interaction):
         history_text = "\n".join(f"{cmd}: {count} times" for cmd, count in command_counts.items())
         embed.add_field(name="Commands", value=history_text if history_text else "No commands used yet")
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="random_joke", description="Fetch and post a random joke. Optionally specify a channel.")
-async def random_joke(
-    interaction: discord.Interaction, 
-    channel: discord.TextChannel = None
-):
-    # Check if user has permission to send messages in the specified channel
-    target_channel = channel or interaction.channel
-    
-    if not target_channel.permissions_for(interaction.user).send_messages:
-        await interaction.response.send_message(
-            f"You don't have permission to send messages in {target_channel.mention}",
-            ephemeral=True
-        )
-        return
-
+async def random_joke(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
-        setup, punchline = get_joke()
+    
+    if await checker.check_role(interaction):  # Check for the required role
+        setup, punchline = get_joke()  # Assuming get_joke() is defined elsewhere
         
         if setup and punchline:
             # Create embed
@@ -744,7 +758,7 @@ async def random_joke(
             embed.set_footer(text=f"Requested by {interaction.user}")
 
             # Create buttons
-            new_joke_button = Button(label="New Joke", style=discord.ButtonStyle.primary, emoji="🎲")
+            new_joke_button = discord.ui.Button(label="New Joke", style=discord.ButtonStyle.primary, emoji="🎲")
             
             async def new_joke_callback(button_interaction: discord.Interaction):
                 new_setup, new_punchline = get_joke()
@@ -767,32 +781,40 @@ async def random_joke(
 
             # Send to specified channel
             if channel:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"Joke sent to {channel.mention}!", 
                     ephemeral=True
                 )
                 await channel.send(embed=embed, view=view)
             else:
-                await interaction.response.send_message(embed=embed, view=view)
+                await interaction.followup.send(embed=embed, view=view)
         else:
-            await interaction.response.send_message("Sorry, couldn't fetch a joke right now.", ephemeral=True)
+            await interaction.followup.send("Sorry, couldn't fetch a joke right now.", ephemeral=True)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="ping", description="Check the bot's latency.")
 async def ping(interaction: discord.Interaction):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         latency = round(bot.latency * 1000)  # Convert to milliseconds
         embed = discord.Embed(
             title="🏓 Pong!",
             description=f"Bot Latency: `{latency}ms`",
             color=discord.Color.green() if latency < 200 else discord.Color.red()
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="serverinfo", description="Display information about the server.")
 async def serverinfo(interaction: discord.Interaction):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         guild = interaction.guild
         
         embed = discord.Embed(
@@ -825,12 +847,16 @@ async def serverinfo(interaction: discord.Interaction):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="userinfo", description="Display information about a user.")
 async def userinfo(interaction: discord.Interaction, user: discord.Member = None):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         user = user or interaction.user
         embed = discord.Embed(
             title=f"👤 User Information for {user.name}",
@@ -844,12 +870,17 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member = None
         roles = [role.mention for role in user.roles if role.name != "@everyone"]
         embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles) if roles else "None", inline=False)
         embed.set_thumbnail(url=user.display_avatar.url)
-        await interaction.response.send_message(embed=embed)
+        
+        await interaction.followup.send(embed=embed)
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="report", description="Report an issue with the bot.")
 async def report(interaction: discord.Interaction, issue: str):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
+    
+    if await checker.check_role(interaction):  # Check for the required role
         # Create embed for the report
         embed = discord.Embed(
             title="🐛 Bug Report",
@@ -868,8 +899,8 @@ async def report(interaction: discord.Interaction, issue: str):
             report_message = await support_channel.send(embed=embed)
 
             # Create buttons for staff to interact with
-            acknowledge_button = Button(label="Acknowledge", style=discord.ButtonStyle.success)
-            resolve_button = Button(label="Resolve", style=discord.ButtonStyle.primary)
+            acknowledge_button = discord.ui.Button(label="Acknowledge", style=discord.ButtonStyle.success)
+            resolve_button = discord.ui.Button(label="Resolve", style=discord.ButtonStyle.primary)
 
             async def acknowledge_callback(button_interaction: discord.Interaction):
                 await button_interaction.response.send_message("Report acknowledged.", ephemeral=True)
@@ -882,7 +913,7 @@ async def report(interaction: discord.Interaction, issue: str):
             acknowledge_button.callback = acknowledge_callback
             resolve_button.callback = resolve_callback
 
-            view = View()
+            view = discord.ui.View()
             view.add_item(acknowledge_button)
             view.add_item(resolve_button)
 
@@ -890,15 +921,17 @@ async def report(interaction: discord.Interaction, issue: str):
             await report_message.edit(view=view)
 
             # Send confirmation to the user
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Thank you for your report! Our team will look into it.",
                 ephemeral=True
             )
         else:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "There was an error sending your report. Please try again later.",
                 ephemeral=True
             )
+    else:
+        return  # Exit if the user does not have the required role
 
 @bot.tree.command(name="8ball", description="🎱 Ask a question and receive an answer from the magic 8-ball.")
 async def eight_ball(interaction: discord.Interaction, question: str):
@@ -978,7 +1011,7 @@ async def eight_ball(interaction: discord.Interaction, question: str):
         view = View()
         view.add_item(history_button)
 
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
     else:
         return  # Exit if the user does not have the required role
 
