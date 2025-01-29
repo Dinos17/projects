@@ -899,16 +899,18 @@ async def report(interaction: discord.Interaction, issue: str):
             report_message = await support_channel.send(embed=embed)
 
             # Create buttons for staff to interact with
-            acknowledge_button = discord.ui.Button(label="Acknowledge", style=discord.ButtonStyle.success)
-            resolve_button = discord.ui.Button(label="Resolve", style=discord.ButtonStyle.primary)
+            acknowledge_button = discord.ui.Button(label="Acknowledged", style=discord.ButtonStyle.success)
+            resolve_button = discord.ui.Button(label="solved", style=discord.ButtonStyle.primary)
 
             async def acknowledge_callback(button_interaction: discord.Interaction):
                 await button_interaction.response.send_message("Report acknowledged.", ephemeral=True)
-                await report_message.add_reaction("✅")  # Add a checkmark reaction to the report message
+                # Send DM to the staff member who acknowledged the report
+                await button_interaction.user.send(f"A staff had Acknowledged your issue and are working on it.")
 
             async def resolve_callback(button_interaction: discord.Interaction):
                 await button_interaction.response.send_message("Report resolved.", ephemeral=True)
-                await report_message.add_reaction("🔒")  # Add a lock reaction to indicate resolution
+                # Send DM to the staff member who resolved the report
+                await button_interaction.user.send(f"Your issue was solved by the staff {interaction.user.mention}.")
 
             acknowledge_button.callback = acknowledge_callback
             resolve_button.callback = resolve_callback
