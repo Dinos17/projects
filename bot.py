@@ -24,9 +24,9 @@ from typing import Any, Callable, TypeVar
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMyNjIzMTE3NTA3NjkwOTA2Ng.G75YRr.Tz697EKCjgrI6k0gaPHbD7ct1ZSSqqtwAyXl6U")  # Use environment variable for TOKEN
-CLIENT_ID = ("SSyW_YrpPGnn9aFpqwCWCQ")  # Use environment variable for client_id
-CLIENT_SECRET = ("yZGOcZn8GJlcrtI2avrVkex2yVAkig")  # Use environment variable for client_secret
+TOKEN = os.getenv("BOTS_TOKEN")  # Use environment variable for TOKEN
+CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")  # Use environment variable for client_id
+CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")  # Use environment variable for client_secret
 
 reddit = praw.Reddit(
     client_id=CLIENT_ID,  # Use the loaded client_id
@@ -188,10 +188,22 @@ class RoleChecker:
         if role and role.id == self.role_id and role in interaction.user.roles:
             return True
         else:
-            await interaction.followup.send(
-                f"You must join the server and obtain the '{self.role_name}' role to use this command.",
-                ephemeral=True
+            invite_link = "https://discord.gg/QegFaGhmmq"  # Replace with your actual invite link
+            
+            # Create an embed for the invite link
+            embed = discord.Embed(
+                title="Join Our Server!",
+                description=f"You must join the server and obtain the '{self.role_name}' role to use this command.",
+                color=discord.Color.blue()
             )
+            embed.add_field(name="Invite Link", value=f"[Click here to join]({invite_link})", inline=False)
+
+            # Create a button for the invite link
+            view = discord.ui.View()
+            invite_button = discord.ui.Button(label="Join Server", style=discord.ButtonStyle.link, url=invite_link)
+            view.add_item(invite_button)
+
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
             return False
 
 # ===== SLASH COMMANDS =====
