@@ -53,6 +53,9 @@ SUPPORT_CHANNEL_ID = 1333205807000453150  # Replace with your actual channel ID
 # Global variable to store last answers
 last_answers = []
 
+# Global variable to keep track of sent GIFs
+sent_gifs = set()
+
 # ===== UTILITY FUNCTIONS =====
 def parse_time(time_str):
     time_str = time_str.lower().strip()
@@ -177,6 +180,7 @@ class RoleChecker:
         self.role_id = role_id
 
     async def check_role(self, interaction):
+        # Check if the user is in the correct server
         if interaction.guild.id != self.server_id:
             await interaction.followup.send(
                 "This command can only be used in the designated server.",
@@ -184,11 +188,12 @@ class RoleChecker:
             )
             return False
 
+        # Check if the user has the required role
         role = discord.utils.get(interaction.guild.roles, name=self.role_name)
         if role and role.id == self.role_id and role in interaction.user.roles:
             return True
         else:
-            invite_link = "https://discord.gg/QegFaGhmmq"  # Replace with your actual invite link
+            invite_link = "https://discord.com/invite/QegFaGhmmq"  # Replace with your actual invite link
             
             # Create an embed for the invite link
             embed = discord.Embed(
@@ -209,7 +214,12 @@ class RoleChecker:
 # ===== SLASH COMMANDS =====
 @bot.tree.command(name="help", description="Show a list of all available commands.")
 async def help_command(interaction: discord.Interaction):
-    await interaction.response.defer()  # Acknowledge the interaction
+    try:
+        await interaction.response.defer()  # Acknowledge the interaction
+    except discord.HTTPException:
+        # If the interaction has already been acknowledged, we can skip this step
+        pass
+
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
     if await checker.check_role(interaction):  # Check for the required role
         def generate_help_embed():
@@ -235,7 +245,9 @@ async def help_command(interaction: discord.Interaction):
                 name="🎮 Fun Commands",
                 value=(
                     "`/random_joke [channel]` - Fetch and post a random joke\n"
-                    "`/ping` - Check bot's latency"
+                    "`/ping` - Check bot's latency\n"
+                    "`/8ball <question>` - Ask a question and receive an answer from the magic 8-ball.\n"
+                    "`/gif <keyword>` - Search and display a random GIF based on a specified keyword."
                 ),
                 inline=False
             )
@@ -1031,19 +1043,37 @@ async def eight_ball(interaction: discord.Interaction, question: str):
 
 @bot.tree.command(name="gif", description="Search and display a random GIF based on a specified keyword.")
 async def gif(interaction: discord.Interaction, keyword: str):
+    await interaction.response.defer()  # Acknowledge the interaction
     checker = RoleChecker("Member", 1326855950937620492, 1327684210177343538)
-    if await checker.check_role(interaction):
-        try:
-            response = requests.get(f"https://api.giphy.com/v1/gifs/search?api_key=upEsZXwiOekDKkRmMwCRpKUHSLz3OXzu&q={keyword}&limit=5&offset=0&rating=g&lang=en")
-            data = response.json()
-            
-            if data['data']:
-                gif_url = random.choice(data['data'])['images']['original']['url']  # Randomly select a GIF
-                await interaction.response.send_message(gif_url)
-            else:
-                await interaction.response.send_message("No GIFs found for that keyword.")
-        except Exception as e:
-            await interaction.response.send_message(f"An error occurred: {str(e)}")
+    
+    if await checker.check_role(interaction):  # Check for the required role
+        async with aiohttp.ClientSession() as session:
+            try:
+                print(f"Fetching GIFs for keyword: {keyword}")  # Debugging line
+                async with session.get(f"https://api.giphy.com/v1/gifs/search?api_key=upEsZXwiOekDKkRmMwCRpKUHSLz3OXzu&q={keyword}&limit=5&offset=0&rating=g&lang=en") as response:
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = await response.json()
+                    print(f"Response data: {data}")  # Debugging line
+                    
+                    if data['data']:
+                        available_gifs = [gif for gif in data['data'] if gif['images']['original']['url'] not in sent_gifs]
+                        
+                        if available_gifs:
+                            selected_gif = random.choice(available_gifs)
+                            gif_url = selected_gif['images']['original']['url']  # Get the selected GIF URL
+                            sent_gifs.add(gif_url)  # Add the GIF URL to the sent list
+                            print(f"Selected GIF URL: {gif_url}")  # Debugging line
+                            await interaction.followup.send(gif_url)
+                        else:
+                            await interaction.followup.send("All available GIFs have already been sent for this keyword.")
+                    else:
+                        await interaction.followup.send("No GIFs found for that keyword.")
+            except aiohttp.ClientError as e:
+                await interaction.followup.send(f"An error occurred while fetching GIFs: {str(e)}")
+            except Exception as e:
+                await interaction.followup.send(f"An unexpected error occurred: {str(e)}")
+    else:
+        return  # Exit if the user does not have the required role
 
 # ===== MAIN EXECUTION =====
 def run_bot():
