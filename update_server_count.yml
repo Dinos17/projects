@@ -1,0 +1,28 @@
+name: Update Server Count
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # This runs the workflow every 5 minutes
+
+jobs:
+  update_count:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Update server_count.json
+        run: |
+          # Generate a random server count (for demonstration purposes)
+          echo "{\"server_count\": $(($RANDOM % 100))}" > Discord_bot/CodeBase/server_count.json
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "konstantinos.argitis@gmail.com"  # Replace with your email
+          git config --local user.name "Dinos17"          # Replace with your name
+          git add Discord_bot/CodeBase/server_count.json
+          git commit -m "Update server count" || echo "No changes to commit"
+
+      - name: Push changes
+        run: git push
