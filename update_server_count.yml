@@ -15,13 +15,13 @@ jobs:
       - name: Update server_count.json
         run: |
           # Generate a random server count (for demonstration purposes)
-          echo "{\"server_count\": $(($RANDOM % 100))}" > server_count.json  # Corrected path
+          echo "{\"server_count\": $(($RANDOM % 100))}" > server_count.json  # Correct path
 
       - name: Commit changes
         run: |
           git config --local user.email "konstantinos.argitis@gmail.com"  # Replace with your email
           git config --local user.name "Dinos17"  # Replace with your name
-          git add server_count.json  # Corrected path
+          git add server_count.json  # Correct path
           git commit -m "Update server count" || echo "No changes to commit"
 
       - name: Push changes
