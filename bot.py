@@ -24,7 +24,7 @@ import json  # Make sure to import json at the top of your file
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMzNjM1MjYzMjc3MTcwNjk2NQ.Gwwzv1.V3cnOJ4xnygCx5u5pHcgel9AgyGXWBCH38lGzU")  # Use environment variable for TOKEN
+TOKEN = ("MTMzNjM1MjYzMjc3MTcwNjk2NQ.GPr5aK.5InpUlLUZPGLwVsPixIsEweTzv4Kofyy0JHAFE")  # Use environment variable for TOKEN
 CLIENT_ID = ("SSyW_YrpPGnn9aFpqwCWCQ")  # Use environment variable for client_id
 CLIENT_SECRET = ("yZGOcZn8GJlcrtI2avrVkex2yVAkig")  # Use environment variable for client_secret
 
