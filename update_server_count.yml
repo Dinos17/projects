@@ -21,7 +21,7 @@ jobs:
         run: |
           git config --local user.email "konstantinos.argitis@gmail.com"  # Replace with your email
           git config --local user.name "Dinos17"          # Replace with your name
-          git add Discord_bot/CodeBase/server_count.json
+          git add server_count.json
           git commit -m "Update server count" || echo "No changes to commit"
 
       - name: Push changes
