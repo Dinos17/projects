@@ -65,7 +65,7 @@ SUPPORT_SERVER_ID = 1263832640868581489  # Your actual server ID
 MEMBER_ROLE_ID = 1327684210177343538  # Your actual role ID
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate("CodeBase/serviceAccountKey/verified-users-for-mememaster-firebase-adminsdk-fbsvc-848eb2f83d.json")
+cred = credentials.Certificate("verified-users-for-mememaster-firebase-adminsdk-fbsvc-848eb2f83d.json")
 firebase_admin.initialize_app(cred)
 
 # Initialize Firestore
