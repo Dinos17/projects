@@ -18,13 +18,14 @@ from discord.app_commands import checks
 from datetime import datetime, timedelta
 import aiohttp
 import logging
-import json  # Make sure to import json at the top of your file
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # Set logging level to ERROR to suppress WARNING and INFO messages
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = ("MTMzNjM1MjYzMjc3MTcwNjk2NQ.GPr5aK.5InpUlLUZPGLwVsPixIsEweTzv4Kofyy0JHAFE")  # Use environment variable for TOKEN
+TOKEN = ("MTMzNjM1MjYzMjc3MTcwNjk2NQ.G4hTrD.Ty70L0NZ5kfQz1O7nKAOp0XmGnt5jf5GjAC-G8")  # Use environment variable for TOKEN
 CLIENT_ID = ("SSyW_YrpPGnn9aFpqwCWCQ")  # Use environment variable for client_id
 CLIENT_SECRET = ("yZGOcZn8GJlcrtI2avrVkex2yVAkig")  # Use environment variable for client_secret
 
@@ -51,13 +52,24 @@ last_sync_time = None
 SYNC_COOLDOWN = 60
 
 # Define your support server channel ID
-SUPPORT_CHANNEL_ID = 1331983087898460160  # Replace with your actual channel ID
+SUPPORT_CHANNEL_ID = 1333083471689551933  # Replace with your actual channel ID
 
 # Global variable to store last answers
 last_answers = []
 
 # Global set to keep track of sent GIFs
 sent_gifs = set()
+
+# Define your support server ID and role ID
+SUPPORT_SERVER_ID = 1263832640868581489  # Your actual server ID
+MEMBER_ROLE_ID = 1327684210177343538  # Your actual role ID
+
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate("CodeBase/serviceAccountKey/verified-users-for-mememaster-firebase-adminsdk-fbsvc-848eb2f83d.json")
+firebase_admin.initialize_app(cred)
+
+# Initialize Firestore
+db = firestore.client()
 
 # ===== UTILITY FUNCTIONS =====
 def parse_time(time_str):
@@ -79,7 +91,10 @@ def format_time(seconds):
 async def get_meme(subreddit_name="memes"):
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://www.reddit.com/r/{subreddit_name}/hot.json?limit=50", headers={"User-Agent": "Auto Memer"}) as response:
+            headers = {
+                "User-Agent": "MemeMaster v1.0 (by /u/Dinos_17)"  # Updated with your Reddit username
+            }
+            async with session.get(f"https://www.reddit.com/r/{subreddit_name}/hot.json?limit=50", headers=headers) as response:
                 data = await response.json()
                 posts = [post for post in data['data']['children'] if post['data']['url'].endswith(("jpg", "jpeg", "png", "gif"))]
 
@@ -156,6 +171,18 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    # Check if the user is in the support server and has the "Member" role
+    guild = bot.get_guild(SUPPORT_SERVER_ID)
+    member = guild.get_member(message.author.id) if guild else None
+    has_member_role = member and discord.utils.get(member.roles, id=MEMBER_ROLE_ID)
+
+    if not has_member_role:
+        await message.channel.send(
+            "You must join my server and gain the 'Member' role to use my commands! "
+            "Join here: [Your Server Invite Link]"
+        )
+        return
+
     # Keyword-based trigger
     keywords = ["post a meme", "send meme"]
     if any(keyword in message.content.lower() for keyword in keywords):
@@ -172,9 +199,21 @@ async def on_interaction(interaction: discord.Interaction):
             f"/{interaction.data['name']}"
         )  # Add command to history
 
+async def check_member_role(interaction: discord.Interaction):
+    guild = bot.get_guild(SUPPORT_SERVER_ID)
+    member = guild.get_member(interaction.user.id) if guild else None
+    return member and discord.utils.get(member.roles, id=MEMBER_ROLE_ID)
+
 # ===== SLASH COMMANDS =====
 @bot.tree.command(name="help", description="Show a list of all available commands.")
 async def help_command(interaction: discord.Interaction):
+    if not await is_user_authorized(interaction.user.id):
+        await interaction.response.send_message(
+            "You do not have access to use this bot. Please contact the administrator.",
+            ephemeral=True
+        )
+        return
+
     def generate_help_embed():
         server_count = len(bot.guilds)  # Count the number of servers the bot has joined
         embed = Embed(title="Help - Available Commands", description=f"- Bot is currently in {server_count} servers", color=discord.Color.blue())
@@ -215,7 +254,7 @@ async def help_command(interaction: discord.Interaction):
                 "</userinfo:1333204607261872195> - Show information about a user\n"
                 "</stats:1326171297440600074> - Show bot statistics\n"
                 "</command_history:1331251925491908793> - View command usage history\n"
-                "</server_counter::1111111111111111111> - Show how many servers the bot has joined"
+                "</server_counter:1336443568696463401> - Show how many servers the bot has joined"
             ),
             inline=False
         )
@@ -277,6 +316,14 @@ async def meme(
     interaction: discord.Interaction,
     subreddit: str = "memes"  # Default to r/memes but allow custom subreddits
 ):
+    if not await check_member_role(interaction):
+        await interaction.response.send_message(
+            "You must join my server and gain the 'Member' role to use my commands! "
+            "Join here: [Your Server Invite Link]",
+            ephemeral=True
+        )
+        return
+
     global meme_command_count  # Access the global counter
     meme_command_count += 1  # Increment the counter only here
     await interaction.response.defer()  # Defer response if meme takes time to fetch
@@ -542,13 +589,20 @@ async def memes_by_number(interaction: discord.Interaction, count: int):
 
         # Send the embed messages with memes to Discord, limiting to 10 embeds per message
         for i in range(0, len(embeds), 10):
-            await interaction.response.send_message(
-                f"Here are your memes {i + 1}-{min(i + 10, len(embeds))}:",
-                embeds=embeds[i:i + 10]
-            )
+            # Ensure only one response is sent for the interaction
+            if i == 0:
+                await interaction.response.send_message(
+                    f"Here are your memes {i + 1}-{min(i + 10, len(embeds))}:",
+                    embeds=embeds[i:i + 10]
+                )
+            else:
+                await interaction.followup.send(
+                    f"Here are your memes {i + 1}-{min(i + 10, len(embeds))}:",
+                    embeds=embeds[i:i + 10]
+                )
     except asyncpraw.exceptions.PRAWException as e:
         print(f"Error fetching memes: {e}")
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "There was an error fetching memes. Please try again later."
         )
 
@@ -849,6 +903,14 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member = None
 
 @bot.tree.command(name="report", description="Report an issue with the bot.")
 async def report(interaction: discord.Interaction, issue: str):
+    # Check if the command is used in a guild context
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command cannot be used in direct messages. Please use it in a server.",
+            ephemeral=True
+        )
+        return
+
     # Create embed for the report
     embed = discord.Embed(
         title="🐛 Bug Report",
@@ -1019,3 +1081,8 @@ def run_bot():
 
 if __name__ == "__main__":
     run_bot()
+
+async def is_user_authorized(user_id):
+    users_ref = db.collection('users')  # Replace 'users' with your collection name
+    user_doc = users_ref.document(str(user_id)).get()
+    return user_doc.exists  # Returns True if the user exists in the database
