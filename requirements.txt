@@ -1,5 +1,6 @@
 discord.py
 requests
-watchdog
 praw
 asyncpraw
+firebase-admin
+aiohttp
