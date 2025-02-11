@@ -23,7 +23,7 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 
 # ===== CONFIGURATION AND SETUP =====
-TOKEN = os.getenv("BOT_TOKEN")  # Use environment variable for TOKEN
+TOKEN = os.getenv("BOTS_TOKEN")  # Use environment variable for TOKEN
 CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")  # Use environment variable for client_id
 CLIENT_SECRET = os.getenv("REDDIT_SECRET")  # Use environment variable for client_secret
 
