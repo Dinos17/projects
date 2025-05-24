@@ -1,10 +1,15 @@
+# IMPORTS
 import sys
+import os
+from dotenv import load_dotenv
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-TOKEN = "MTMzNjM1MjYzMjc3MTcwNjk2NQ.GW9oBY.xnxx3Fdef4zRcY8zA5MHYkxehEE5opr3uOrSDc"  # Replace with your bot token
-STAFF_CHANNEL_ID = 1016836402178170970  # Your staff channel ID
+# CONFIGURATION AND SETUP
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+STAFF_CHANNEL_ID = int(os.getenv("STAFF_CHANNEL_ID"))
 
 intents = discord.Intents.default()
 intents.message_content = True
