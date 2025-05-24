@@ -8,7 +8,7 @@ from discord.ext import commands
 
 # CONFIGURATION AND SETUP
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv("TOKEN")
 STAFF_CHANNEL_ID = int(os.getenv("STAFF_CHANNEL_ID"))
 
 intents = discord.Intents.default()
